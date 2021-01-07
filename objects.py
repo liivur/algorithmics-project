@@ -36,7 +36,7 @@ class World:
     def generate_random_creature(self):
         color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         return Creature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
-                        size=random.uniform(1, 50), color=color, speed=random.uniform(1, 10),
+                        size=random.uniform(1, 50), color=color, speed=random.uniform(1, 5),
                         name='Creature ' + str(self.creature_total + 1))
 
     def remove_creature(self, creature):
