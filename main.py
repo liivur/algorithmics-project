@@ -1,32 +1,22 @@
 import pygame
+import random
 import sys
-from objects import Creature
-
-pygame.init()
-
-size = width, height = 640, 480
-speed = [1, 1]
-black = 0, 0, 0
-
-screen = pygame.display.set_mode(size)
-clock = pygame.time.Clock()
+from objects import Creature, Food, World
 
 creatures = []
-color = pygame.Color(50, 50, 50)
-creatures.append(Creature(100.0, 100.0, 10.0, color, 1.0))
-color = pygame.Color(50, 100, 50)
-creatures.append(Creature(100.0, 100.0, 10.0, color, 2.0))
+color = pygame.Color(150, 50, 50)
+creatures.append(Creature(x=100.0, y=100.0, size=10.0, color=color, speed=1.0, name='Small 1'))
+color = pygame.Color(150, 100, 50)
+creatures.append(Creature(x=200.0, y=100.0, size=20.0, color=color, speed=0.5, name='Big 1'))
 
-while 1:
+food = []
+
+world = World(creatures=creatures, edibles=food)
+
+food_spawn_counter = 0
+while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             sys.exit()
 
-    screen.fill(black)
-    dt = clock.tick(60)
-
-    for creature in creatures:
-        creature.tick(screen, [], dt)
-        creature.draw(screen)
-
-    pygame.display.flip()
+    world.tick()
