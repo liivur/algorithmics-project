@@ -2,12 +2,19 @@ import pygame
 import random
 import sys
 from objects import Creature, Food, World
+from dna import DNA
 
 creatures = []
-color = pygame.Color(150, 50, 50)
-creatures.append(Creature(x=100.0, y=100.0, size=10.0, color=color, speed=8, name='Small 1'))
-color = pygame.Color(150, 100, 50)
-creatures.append(Creature(x=200.0, y=100.0, size=20.0, color=color, speed=4, name='Big 1'))
+pop_size = 50
+for i in range(pop_size):
+    color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+    x = random.randint(0, 1024)
+    y = random.randint(0, 768)
+    gene = [random.uniform(0, 1), color.r/255, color.g/255, color.b/255]
+    print(f"gene: {gene} generated")
+    creatures.append(Creature(x=x, y=y, color=color,dna=DNA(gene), name='Creature '+str(i)))
+
+
 
 food = []
 

@@ -1,7 +1,11 @@
 import pygame
 import random
+import auxiliary
+from dna import DNA
 from math import cos, pi, sin
 
+
+# ? monitor number of creatures in the world
 
 class World:
     def __init__(self, width: int = 640, height: int = 480, background: tuple = (0, 0, 0),
@@ -35,9 +39,11 @@ class World:
 
     def generate_random_creature(self):
         color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        gene = [random.uniform(0, 1), color.r/255, color.g/255, color.b/255]
+        print("random creature added")
         return Creature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
-                        size=random.uniform(1, 50), color=color, speed=random.uniform(1, 5),
-                        name='Creature ' + str(self.creature_total + 1))
+                        color=color, dna=DNA(gene), name='Creature ' + str(self.creature_total + 1))
+
 
     def remove_creature(self, creature):
         self.creatures.remove(creature)
@@ -100,11 +106,19 @@ class SquareObject(Object):
 
 class Creature(SquareObject):
     base_health = 300
+    min_size = 1
+    max_size = 50
+    min_speed = 1
+    max_speed = 5
 
-    def __init__(self, x: float, y: float, size: float, color: pygame.Color, direction: float = 0.0, speed: float = 10,
+    def __init__(self, x: float, y: float, color: pygame.Color, dna=DNA(),
+                 direction: float = 0.0,
                  name: str = 'object', multiply_chance=0.05):
-        super().__init__(x, y, size, color, direction, name=name)
-        self.speed = speed
+        # since speed and size are inversely related (auxiliary.map function) we can code its value with one gene
+        self.dna = dna
+        self.size = auxiliary.map(self.dna.genes[0], 0, 1, 1, 50)
+        self.speed = auxiliary.map(self.dna.genes[0], 1, 50, 5, 1)
+        super().__init__(x, y, self.size, color, direction, name=name)
         self.health = self.base_health
         self.multiply_chance = multiply_chance
 
@@ -120,9 +134,11 @@ class Creature(SquareObject):
         pass
 
     def multiply(self) -> 'Creature':
-        size = random.uniform(self.size * 0.9, self.size * 1.1)
-        return Creature(self.x, self.y, size, color=self.color, direction=(self.direction + pi) % (2 * pi),
-                        speed=random.uniform(self.speed * 0.9, self.speed * 1.1), name=self.name)
+        child_dna = self.dna.copy()
+        child_dna.mutation()
+        color = pygame.Color(int(child_dna.genes[1] * 255), int(child_dna.genes[2] * 255), int(child_dna.genes[3] * 255))
+        return Creature(self.x, self.y, color=color, dna=child_dna, direction=(self.direction + pi) % (2 * pi),
+                        name=self.name)
 
     def update_health(self, dt):
         self.health -= self.speed * self.size * dt * 0.0005
@@ -147,7 +163,23 @@ class Creature(SquareObject):
                 self.health += edible.value
                 world.remove_edible(edible)
 
+        # creature interaction
+        for creature in world.creatures:
+            if creature != self and self.rect.colliderect(creature.rect):
+                # sexual reproduction
+                if random.random() < self.multiply_chance * dt / 1000:
+                    child_dna = self.dna.crossover(creature.dna)
+                    child_dna.mutation()
+                    print("a child is born via sexual reproduction")
+                    color = pygame.Color(int(child_dna.genes[1]*255), int(child_dna.genes[2]*255), int(child_dna.genes[3]*255))
+                    child = Creature(self.x, self.y, color=color, dna=child_dna,
+                             direction=(self.direction + pi) % (2 * pi),
+                             name=self.name)
+                    world.add_creature(child)
+
+        # asexual reproduction
         if random.random() < self.multiply_chance * dt / 1000:
+            print("a child is born via asexual reproduction")
             world.add_creature(self.multiply())
 
         self.update_health(dt)
