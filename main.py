@@ -1,7 +1,7 @@
 import pygame
 import random
 import sys
-from objects import Creature, Food, World
+from objects import DnaCreature, World
 from dna import DNA
 
 creatures = []
@@ -10,15 +10,16 @@ for i in range(pop_size):
     color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
     x = random.randint(0, 1024)
     y = random.randint(0, 768)
-    gene = [random.uniform(0, 1), color.r/255, color.g/255, color.b/255]
+    # color red, color green, color blue, speed, size, reproduction preference
+    gene = [color.r / 255, color.g / 255, color.b / 255, random.uniform(0, 1), random.uniform(0, 1),
+            random.uniform(0, 1)]
     print(f"gene: {gene} generated")
-    creatures.append(Creature(x=x, y=y, color=color,dna=DNA(gene), name='Creature '+str(i)))
-
-
+    creatures.append(DnaCreature(x=x, y=y, dna=DNA(gene), name='DnaCreature ' + str(i)))
 
 food = []
 
-world = World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=5000)
+world = World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=5000, random_spawning=False,
+              max_creatures=500)
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
