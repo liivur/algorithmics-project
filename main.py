@@ -19,7 +19,7 @@ for i in range(pop_size):
 food = []
 
 world = World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=5000, random_spawning=False,
-              max_creatures=500)
+              max_creatures=100)
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:

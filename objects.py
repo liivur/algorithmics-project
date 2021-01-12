@@ -2,7 +2,7 @@ import pygame
 import random
 import auxiliary
 from dna import DNA
-from math import cos, pi, sin
+from math import cos, pi, sin, atan2
 
 
 # ? monitor number of creatures in the world
@@ -33,7 +33,7 @@ class World:
         # sanity check so the computer doesn't crash with bad params
         if len(self.creatures) > self.max_creatures:
             pass
-        self.creatures.append(creature)
+        # self.creatures.append(creature)
         self.creature_total += 1
 
     def add_edible(self, food):
@@ -108,7 +108,7 @@ class SquareObject(Object):
 
 class Creature(SquareObject):
     base_health = 300
-    multiply_delay = 1000
+    multiply_delay = 10**4
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, name: str = 'object', multiply_chance=(0.25, 0.05)):
@@ -117,7 +117,12 @@ class Creature(SquareObject):
         self.health = self.base_health
         self.multiply_chance = multiply_chance
 
-        self.multiply_cd = 0
+        self.multiply_cd = self.multiply_delay
+
+        self.vision_radius = 100
+        self.detection_chance = 0.25
+        self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
+                                       self.vision_radius * 2, self.vision_radius * 2)
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
@@ -129,11 +134,26 @@ class Creature(SquareObject):
         b = pygame.math.Vector2(self.x - self.size * sin(self.direction),
                                 self.y - self.size * cos(self.direction))
         pygame.draw.line(surface, color, a, b)
+        font = pygame.font.Font('freesansbold.ttf', 32)
+        text = font.render(str(self.multiply_cd // 1000), True, (255, 0, 0), (0, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.center = (self.x, self.y)
+        surface.blit(text, text_rect)
 
-    def find_target(self, objects):
-        pass
+    def find_target(self, world: World, dt) -> SquareObject:
+        for edible in world.edibles:
+            if self.vision_rect.colliderect(edible.rect):
+                return edible
+
+        for creature in world.creatures:
+            if creature != self and self.rect.colliderect(creature.rect):
+                if random.random() < self.detection_chance * dt / 1000:
+                    return creature
+
+        return None
 
     def multiply(self) -> 'Creature':
+        self.multiply_cd = self.multiply_delay
         size = random.uniform(self.size * 0.9, self.size * 1.1)
         return Creature(self.x, self.y, size, speed=random.uniform(self.speed * 0.9, self.speed * 1.1),
                         color=self.color, direction=(self.direction + pi) % (2 * pi), name=self.name,
@@ -146,7 +166,8 @@ class Creature(SquareObject):
         return self.multiply()
 
     def update_health(self, dt):
-        self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.0005
+        # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.0005
+        self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.000005
 
     def update_multiply(self, dt):
         self.multiply_cd = max(0, self.multiply_cd - dt)
@@ -155,6 +176,7 @@ class Creature(SquareObject):
         self.rect = rect
         self.x = rect.centerx
         self.y = rect.centery
+        self.vision_rect.center = rect.center
 
     def creature_interaction(self, world: World, dt):
         if self.can_multiply():
@@ -170,15 +192,29 @@ class Creature(SquareObject):
             if random.random() < self.multiply_chance[1] * dt / 1000:
                 world.add_creature(self.asexual_multiply())
 
+    def get_velocity(self, dt):
+        vel_x = self.speed / 50 * sin(self.direction) * dt
+        vel_y = self.speed / 50 * cos(self.direction) * dt
+
+        return vel_x, vel_y
+
     def tick(self, world: World, dt: float):
-        vel_x = self.speed / 10 * sin(self.direction) * dt
-        vel_y = self.speed / 10 * cos(self.direction) * dt
+        target = self.find_target(world, dt)
+        if target:
+            if isinstance(target, Food) or (self.can_multiply() and target.can_multiply()):
+                self.direction = atan2(target.y - self.y, target.x - self.x)
+            else:
+                self.direction = atan2(target.x - self.x, target.y - self.y)
+
+        vel_x, vel_y = self.get_velocity(dt)
         new_rect = self.rect.move(vel_x, vel_y)
 
         bounds = world.screen.get_rect()
         if not bounds.contains(new_rect):
             self.direction = (self.direction + random.uniform(0, pi)) % (2 * pi)
-            new_rect = self.rect.clamp(bounds)
+            vel_x, vel_y = self.get_velocity(dt)
+            new_rect = self.rect.move(vel_x, vel_y).clamp(bounds)
+            # new_rect = self.rect.clamp(bounds)
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
@@ -212,12 +248,15 @@ class DnaCreature(Creature):
         self.dna = dna
 
     def asexual_multiply(self):
+        self.multiply_cd = self.multiply_delay
         dna = self.dna.copy()
         dna.mutation()
         print("a child is born via asexual reproduction")
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
-    def sexual_multiply(self, partner: 'DnaCreature' = None) -> 'DnaCreature':
+    def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
+        self.multiply_cd = self.multiply_delay
+
         child_dna = self.dna.crossover(partner.dna)
         child_dna.mutation()
         print("a child is born via sexual reproduction")
