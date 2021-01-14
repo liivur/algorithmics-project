@@ -33,7 +33,7 @@ class World:
         # sanity check so the computer doesn't crash with bad params
         if len(self.creatures) > self.max_creatures:
             pass
-        # self.creatures.append(creature)
+        self.creatures.append(creature) # comment back
         self.creature_total += 1
 
     def add_edible(self, food):
@@ -71,10 +71,23 @@ class World:
 
         for creature in self.creatures:
             creature.tick(self, dt)
-            if creature.health > 0:
+
+            # random death:
+            if random.random() <= creature.death_rate * dt / 1000:
+                self.remove_creature(creature)
+
+            elif creature.health > 0:
                 creature.draw(self.screen)
             else:
                 self.remove_creature(creature)
+
+
+        font = pygame.font.Font('freesansbold.ttf', 14)
+        text = font.render(f"# of creatures: {len(self.creatures)}", True, (255, 255, 255), (0, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.center = (100, 50)
+        self.screen.blit(text, text_rect)
+
 
     def update_edibles(self, dt):
         self.food_spawn_counter += dt
@@ -84,6 +97,7 @@ class World:
 
         for food in self.edibles:
             food.draw(self.screen)
+
 
 
 class Object:
@@ -107,19 +121,24 @@ class SquareObject(Object):
 
 
 class Creature(SquareObject):
-    base_health = 300
+    # base_health = 300
+    base_health = 20000
     multiply_delay = 10**4
+    # multiply_delay = 2 * (10 ** 4)
+    death_rate = 0.05 # possibility of random death
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, name: str = 'object', multiply_chance=(0.25, 0.05)):
         super().__init__(x, y, size, color, direction, name=name)
         self.speed = speed
         self.health = self.base_health
+        print(f"health init: {self.health}")
         self.multiply_chance = multiply_chance
 
         self.multiply_cd = self.multiply_delay
 
-        self.vision_radius = 100
+        # self.vision_radius = 100
+        self.vision_radius = 300
         self.detection_chance = 0.25
         self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
                                        self.vision_radius * 2, self.vision_radius * 2)
@@ -134,11 +153,23 @@ class Creature(SquareObject):
         b = pygame.math.Vector2(self.x - self.size * sin(self.direction),
                                 self.y - self.size * cos(self.direction))
         pygame.draw.line(surface, color, a, b)
-        font = pygame.font.Font('freesansbold.ttf', 32)
+        font = pygame.font.Font('freesansbold.ttf', 12)
         text = font.render(str(self.multiply_cd // 1000), True, (255, 0, 0), (0, 0, 0))
         text_rect = text.get_rect()
         text_rect.center = (self.x, self.y)
         surface.blit(text, text_rect)
+
+        # print health
+        health_ratio = self.health/self.base_health
+        if health_ratio > 1:
+            health_ratio = 1
+        r = int(255 - (255 * health_ratio))
+        g = int(255 * health_ratio)
+        b = 0
+        health_text = font.render(f"h: {round(self.health, 2)}", True, (r, g, b), (0, 0, 0))
+        health_text_rect = health_text.get_rect()
+        health_text_rect.center = (self.x, self.y + 15)
+        surface.blit(health_text, health_text_rect)
 
     def find_target(self, world: World, dt) -> SquareObject:
         for edible in world.edibles:
@@ -152,12 +183,16 @@ class Creature(SquareObject):
 
         return None
 
+
+
     def multiply(self) -> 'Creature':
         self.multiply_cd = self.multiply_delay
         size = random.uniform(self.size * 0.9, self.size * 1.1)
         return Creature(self.x, self.y, size, speed=random.uniform(self.speed * 0.9, self.speed * 1.1),
                         color=self.color, direction=(self.direction + pi) % (2 * pi), name=self.name,
                         multiply_chance=self.multiply_chance)
+
+
 
     def sexual_multiply(self, partner):
         return self.multiply()
@@ -168,6 +203,8 @@ class Creature(SquareObject):
     def update_health(self, dt):
         # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.0005
         self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.000005
+        # self.health -= (self.size ** 3) * (self.speed ** 2) * dt * 0.0000005 # primer-like
+        # print(f"delta health: {(self.size ** 3) * (self.speed ** 2) * dt }")
 
     def update_multiply(self, dt):
         self.multiply_cd = max(0, self.multiply_cd - dt)
@@ -183,6 +220,14 @@ class Creature(SquareObject):
             # creature interaction
             for creature in world.creatures:
                 if creature != self and self.rect.colliderect(creature.rect):
+
+                    # bigger creatures can it smaller creatures if their size is at least 20% the size of the smaller one
+                    # ? add successful hunt probability?
+                    if self.size >= creature.size:
+                        self.health += 0.1 * creature.health
+                        world.remove_creature(creature)
+
+
                     # sexual reproduction
                     if random.random() < self.multiply_chance[0] * dt / 1000:
                         child = self.sexual_multiply(creature)
@@ -195,7 +240,7 @@ class Creature(SquareObject):
     def get_velocity(self, dt):
         vel_x = self.speed / 50 * sin(self.direction) * dt
         vel_y = self.speed / 50 * cos(self.direction) * dt
-
+        print(f"velocity: x: {vel_x}, y: {vel_y}")
         return vel_x, vel_y
 
     def tick(self, world: World, dt: float):
@@ -218,6 +263,7 @@ class Creature(SquareObject):
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
+                print(f"found food with value: {edible.value}")
                 self.health += edible.value
                 world.remove_edible(edible)
 
@@ -247,7 +293,14 @@ class DnaCreature(Creature):
         super().__init__(x, y, size, speed, color, direction, name=name, multiply_chance=multiply_chance)
         self.dna = dna
 
+
+        print(f"health dna creature: {self.health}")
+
+
+    # reproduction comes with a cost
+
     def asexual_multiply(self):
+        self.health -=  0.01 * self.health
         self.multiply_cd = self.multiply_delay
         dna = self.dna.copy()
         dna.mutation()
@@ -255,6 +308,7 @@ class DnaCreature(Creature):
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
+        self.health -= 0.01 * self.health
         self.multiply_cd = self.multiply_delay
 
         child_dna = self.dna.crossover(partner.dna)
