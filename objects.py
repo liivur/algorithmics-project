@@ -147,10 +147,9 @@ class SquareObject(Object):
 class Creature(SquareObject):
     # base_health = 300
     base_health = 20000
-    multiply_delay = 10 ** 4
-    # multiply_delay = 2 * (10 ** 4)
-    death_rate = 0.05 # possibility of random death
-    death_rate = 0
+    # multiply_delay = 10 ** 4
+    multiply_delay = 2 * (10 ** 4)
+    death_rate = 0.01 # possibility of random death
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, vision_radius = 100,  name: str = 'object_x', multiply_chance=(0.25, 0.05)):
@@ -187,11 +186,14 @@ class Creature(SquareObject):
         pygame.draw.rect(surface, self.color, self.vision_rect, 1)
 
         a = pygame.math.Vector2(self.x, self.y)
-        b = pygame.math.Vector2(self.x - self.size * sin(self.direction),
-                                self.y - self.size * cos(self.direction))
+        b = pygame.math.Vector2(self.x - self.size * cos(self.direction),
+                                self.y - self.size * sin(self.direction))
         pygame.draw.line(surface, color, a, b)
         font = pygame.font.Font('freesansbold.ttf', 12)
-        text = font.render(str(self.multiply_cd // 1000), True, (255, 0, 0), (0, 0, 0))
+        if self.can_multiply():
+            text = font.render("fertile", True, (0, 255, 0), (0, 0, 0))
+        else:
+            text = font.render(str(self.multiply_cd // 1000), True, (255, 0, 0), (0, 0, 0))
         text_rect = text.get_rect()
         text_rect.center = (self.x, self.y)
         surface.blit(text, text_rect)
@@ -219,6 +221,19 @@ class Creature(SquareObject):
         dy_text_rect = dx_text.get_rect()
         dy_text_rect.center = (self.x, self.y + 45)
         surface.blit(dy_text, dy_text_rect)
+
+        # position output
+        """
+        x_text = font.render(f"x: {round(self.x, 2)}", True, (255, 255, 255), (0, 0, 0))
+        x_text_rect = x_text.get_rect()
+        x_text_rect.center = (self.x, self.y + 60)
+        surface.blit(x_text, x_text_rect)
+
+        y_text = font.render(f"y: {round(self.y, 2)}", True, (255, 255, 255), (0, 0, 0))
+        y_text_rect = y_text.get_rect()
+        y_text_rect.center = (self.x, self.y + 75)
+        surface.blit(y_text, y_text_rect)
+        """
 
 
     def find_target(self, world: World, dt) -> SquareObject:
@@ -368,8 +383,8 @@ class DnaCreature(Creature):
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self.health -= 0.1 * self.health
-        partner.health -= 0.1 * partner.health
+        self.health -= 0.15 * self.health
+        partner.health -= 0.15 * partner.health
         self.multiply_cd = self.multiply_delay
 
         child_dna = self.dna.crossover(partner.dna)
@@ -384,4 +399,4 @@ class Food(SquareObject):
                  color: pygame.Color = pygame.Color(125, 125, 125)):
         super().__init__(x, y, size, color, 0, name='food')
         # self.value = value
-        self.value = 0.05 * 20000
+        self.value = 0.1 * 20000
