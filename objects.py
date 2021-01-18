@@ -167,7 +167,7 @@ class Creature(SquareObject):
         self.vision_radius = vision_radius
         self.log(f"vision radius: {self.vision_radius}")
         # self.vision_radius = 300
-        self.detection_chance = 0.25
+        # self.detection_chance = 0.25
         self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
                                        self.vision_radius * 2, self.vision_radius * 2)
 
@@ -235,6 +235,39 @@ class Creature(SquareObject):
         surface.blit(y_text, y_text_rect)
         """
 
+    """
+    def find_target(self, world: World, dt) -> SquareObject:
+        min_food_dist = 100000 # just some number larger than the world
+        closest_food = None
+        for edible in world.edibles:
+            if self.vision_rect.colliderect(edible.rect):
+                dist = ((self.x - edible.x) ** 2 + (self.y - edible.y) ** 2) ** 0.5
+                if dist < min_food_dist:
+                    min_food_dist = dist
+                    closest = edible
+        #if closest_food:
+        #    return closest_food
+
+        closest_creature = None
+        min_creature_dist = 100000 # just some number larger than the world
+        for creature in world.creatures:
+            # if creature != self and self.rect.colliderect(creature.rect):
+            if creature != self and self.vision_rect.colliderect(creature.rect):
+                dist = ((self.x - creature.x) ** 2 + (self.y - creature.y) ** 2) ** 0.5
+                if dist < min_creature_dist:
+                    closest_creature = creature
+                    min_creature_dist = dist
+                # if random.random() < self.detection_chance * dt / 1000:
+        #            return creature
+
+        if min_food_dist < min_creature_dist:
+            return closest_food
+        elif creature:
+            return creature
+        else:
+            return None
+    """
+
 
     def find_target(self, world: World, dt) -> SquareObject:
         for edible in world.edibles:
@@ -244,7 +277,7 @@ class Creature(SquareObject):
         for creature in world.creatures:
             # if creature != self and self.rect.colliderect(creature.rect):
             if creature != self and self.vision_rect.colliderect(creature.rect):
-                if random.random() < self.detection_chance * dt / 1000:
+                # if random.random() < self.detection_chance * dt / 1000:
                     return creature
 
         return None
@@ -300,14 +333,22 @@ class Creature(SquareObject):
                         world.remove_creature(creature)
 
 
-
+            """   
             # asexual reproduction
             if random.random() < self.multiply_chance[1] * dt / 1000:
                 world.add_creature(self.asexual_multiply())
+            """
 
     def get_velocity(self, dt):
         vel_x = self.speed / 50 * cos(self.direction) * dt
         vel_y = self.speed / 50 * sin(self.direction) * dt
+
+        if vel_x != 0 and abs(vel_x) < 1:
+            vel_x = auxiliary.sign(vel_x)
+        if vel_y != 0 and abs(vel_y) < 1:
+            vel_y = auxiliary.sign(vel_y)
+
+
         self.log(f"velocity: x: {vel_x}, y: {vel_y}")
         # print(f"velocity: x: {vel_x}, y: {vel_y}")
         self.dx = vel_x
@@ -320,8 +361,10 @@ class Creature(SquareObject):
             self.log("found target %s" % target.name)
             if isinstance(target, Food) or (self.can_multiply() and target.can_multiply()):
                 self.direction = atan2(target.y - self.y, target.x - self.x)
+            """
             else:
                 self.direction = atan2(target.x - self.x, target.y - self.y)
+            """
 
         vel_x, vel_y = self.get_velocity(dt)
         new_rect = self.rect.move(vel_x, vel_y)
@@ -371,6 +414,19 @@ class DnaCreature(Creature):
 
         self.log("creature created")
         self.log(f"health dna creature: {self.health}")
+
+
+        # neural network parameters
+
+
+
+
+
+
+
+
+
+
 
 
     # reproduction comes with a cost
