@@ -3,9 +3,30 @@ import random
 import auxiliary
 from dna import DNA
 from math import cos, pi, sin, atan2
+import logging
+
+# logging.basicConfig(level=logging.DEBUG)
+# logs to std err and overwrites (each execution) file out.log
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
+                    handlers=[logging.StreamHandler(), logging.FileHandler(filename='out.log', mode='w')])
+
+logger = logging.getLogger(__name__)
 
 
 # ? monitor number of creatures in the world
+
+class CreatureIdGenerator:
+    def __init__(self):
+        self.creature_id_inc_counter = 0
+
+    def get_next_id(self):
+        self.creature_id_inc_counter += 1
+        return self.creature_id_inc_counter
+
+
+# create singleton creature id generator
+creature_id_generator = CreatureIdGenerator()
+
 
 class World:
     def __init__(self, width: int = 640, height: int = 480, background: tuple = (0, 0, 0),
@@ -43,8 +64,8 @@ class World:
         color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         gene = [random.uniform(0, 1), color.r / 255, color.g / 255, color.b / 255]
         print("random creature added")
-        return Creature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
-                        color=color, dna=DNA(gene), name='Creature ' + str(self.creature_total + 1))
+        return DnaCreature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
+                        color=color, dna=DNA(gene), name='Creature ' + str(creature_id_generator.get_next_id()))
 
     def remove_creature(self, creature):
         self.creatures.remove(creature)
@@ -108,6 +129,10 @@ class Object:
         self.name = name
 
 
+    def log(self, info: str):
+        logger.debug(self.name + ": " + info)
+
+
 class SquareObject(Object):
     def __init__(self, x: float, y: float, size: float, color: pygame.Color, direction: float = 0.0,
                  name: str = 'object'):
@@ -128,7 +153,7 @@ class Creature(SquareObject):
     death_rate = 0.05 # possibility of random death
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
-                 direction: float = 0.0, name: str = 'object', multiply_chance=(0.25, 0.05)):
+                 direction: float = 0.0, name: str = 'object_x', multiply_chance=(0.25, 0.05)):
         super().__init__(x, y, size, color, direction, name=name)
         self.speed = speed
         self.health = self.base_health
@@ -142,6 +167,7 @@ class Creature(SquareObject):
         self.detection_chance = 0.25
         self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
                                        self.vision_radius * 2, self.vision_radius * 2)
+        self.log("creature created")
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
@@ -240,7 +266,8 @@ class Creature(SquareObject):
     def get_velocity(self, dt):
         vel_x = self.speed / 50 * sin(self.direction) * dt
         vel_y = self.speed / 50 * cos(self.direction) * dt
-        print(f"velocity: x: {vel_x}, y: {vel_y}")
+        self.log(f"velocity: x: {vel_x}, y: {vel_y}")
+        # print(f"velocity: x: {vel_x}, y: {vel_y}")
         return vel_x, vel_y
 
     def tick(self, world: World, dt: float):
