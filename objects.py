@@ -63,7 +63,7 @@ class World:
     def generate_random_creature(self):
         color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
         gene = [random.uniform(0, 1), color.r / 255, color.g / 255, color.b / 255]
-        print("random creature added")
+        # print("random creature added")
         return DnaCreature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
                         color=color, dna=DNA(gene), name='Creature ' + str(creature_id_generator.get_next_id()))
 
@@ -155,9 +155,10 @@ class Creature(SquareObject):
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, name: str = 'object_x', multiply_chance=(0.25, 0.05)):
         super().__init__(x, y, size, color, direction, name=name)
+        self.log("creature created")
         self.speed = speed
         self.health = self.base_health
-        print(f"health init: {self.health}")
+        self.log(f"health init: {self.health}")
         self.multiply_chance = multiply_chance
 
         self.multiply_cd = self.multiply_delay
@@ -167,7 +168,6 @@ class Creature(SquareObject):
         self.detection_chance = 0.25
         self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
                                        self.vision_radius * 2, self.vision_radius * 2)
-        self.log("creature created")
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
@@ -290,7 +290,7 @@ class Creature(SquareObject):
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
-                print(f"found food with value: {edible.value}")
+                self.log(f"found food with value: {edible.value}")
                 self.health += edible.value
                 world.remove_edible(edible)
 
@@ -320,8 +320,8 @@ class DnaCreature(Creature):
         super().__init__(x, y, size, speed, color, direction, name=name, multiply_chance=multiply_chance)
         self.dna = dna
 
-
-        print(f"health dna creature: {self.health}")
+        self.log("creature created")
+        self.log(f"health dna creature: {self.health}")
 
 
     # reproduction comes with a cost
@@ -331,7 +331,7 @@ class DnaCreature(Creature):
         self.multiply_cd = self.multiply_delay
         dna = self.dna.copy()
         dna.mutation()
-        print("a child is born via asexual reproduction")
+        self.log("produced child via asexual reproduction")
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
@@ -340,7 +340,7 @@ class DnaCreature(Creature):
 
         child_dna = self.dna.crossover(partner.dna)
         child_dna.mutation()
-        print("a child is born via sexual reproduction")
+        self.log("produced child with %s via sexual reproduction" % partner.name)
 
         return DnaCreature(self.x, self.y, dna=child_dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 

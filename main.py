@@ -4,6 +4,7 @@ import sys
 # from objects import DnaCreature, World, CreatureIdGenerator
 import objects as obj
 from dna import DNA
+import time
 
 creatures = []
 pop_size = 50
@@ -28,3 +29,4 @@ while True:
             sys.exit()
 
     world.tick()
+    # time.sleep(0.01)
