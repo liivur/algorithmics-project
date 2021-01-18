@@ -13,7 +13,6 @@ logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
 logger = logging.getLogger(__name__)
 
 
-# ? monitor number of creatures in the world
 
 class CreatureIdGenerator:
     def __init__(self):
@@ -149,12 +148,13 @@ class SquareObject(Object):
 class Creature(SquareObject):
     # base_health = 300
     base_health = 20000
-    multiply_delay = 10**4
+    multiply_delay = 10 ** 4
     # multiply_delay = 2 * (10 ** 4)
     death_rate = 0.05 # possibility of random death
+    death_rate = 0
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
-                 direction: float = 0.0, name: str = 'object_x', multiply_chance=(0.25, 0.05)):
+                 direction: float = 0.0, vision_radius = 100,  name: str = 'object_x', multiply_chance=(0.25, 0.05)):
         super().__init__(x, y, size, color, direction, name=name)
         self.log("creature created")
         self.speed = speed
@@ -164,11 +164,18 @@ class Creature(SquareObject):
 
         self.multiply_cd = self.multiply_delay
 
-        self.vision_radius = 100
+        # self.vision_radius = 100
+        self.vision_radius = vision_radius
+        self.log(f"vision radius: {self.vision_radius}")
         # self.vision_radius = 300
         self.detection_chance = 0.25
-        # self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
-        #                                self.vision_radius * 2, self.vision_radius * 2)
+        self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
+                                       self.vision_radius * 2, self.vision_radius * 2)
+
+        # auxiliary attributes
+        self.dx = 0.0
+        self.dy = 0.0
+
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
@@ -176,6 +183,9 @@ class Creature(SquareObject):
     def draw(self, surface: pygame.Surface):
         super().draw(surface)
         color = pygame.Color(255, 255, 255)
+
+        pygame.draw.rect(surface, self.color, self.vision_rect, 1)
+
         a = pygame.math.Vector2(self.x, self.y)
         b = pygame.math.Vector2(self.x - self.size * sin(self.direction),
                                 self.y - self.size * cos(self.direction))
@@ -193,14 +203,23 @@ class Creature(SquareObject):
         r = int(255 - (255 * health_ratio))
         g = int(255 * health_ratio)
         b = 0
-        health_text = font.render(f"h: {round(self.health, 2)}", True, (r, g, b), (0, 0, 0))
+        health_text = font.render(f"h: {round(health_ratio * 100, 2) }%", True, (r, g, b), (0, 0, 0))
         health_text_rect = health_text.get_rect()
         health_text_rect.center = (self.x, self.y + 15)
         surface.blit(health_text, health_text_rect)
 
-        # draw vision
-        # pygame.draw.rect(surface, color=(255, 255, 255), rect=self.vision_rect, width=1)
-        pygame.draw.circle(surface, color=(255, 255, 255), center=(self.x, self.y), radius=self.vision_radius, width=1)
+
+
+        dx_text = font.render(f"dx: {round(self.dx, 2)}", True, (255, 255, 255), (0, 0, 0))
+        dx_text_rect = dx_text.get_rect()
+        dx_text_rect.center = (self.x, self.y + 30)
+        surface.blit(dx_text, dx_text_rect)
+
+        dy_text = font.render(f"dy: {round(self.dy, 2)}", True, (255, 255, 255), (0, 0, 0))
+        dy_text_rect = dx_text.get_rect()
+        dy_text_rect.center = (self.x, self.y + 45)
+        surface.blit(dy_text, dy_text_rect)
+
 
     def find_target(self, world: World, dt) -> SquareObject:
         for edible in world.edibles:
@@ -208,7 +227,8 @@ class Creature(SquareObject):
                 return edible
 
         for creature in world.creatures:
-            if creature != self and self.rect.colliderect(creature.rect):
+            # if creature != self and self.rect.colliderect(creature.rect):
+            if creature != self and self.vision_rect.colliderect(creature.rect):
                 if random.random() < self.detection_chance * dt / 1000:
                     return creature
 
@@ -233,8 +253,8 @@ class Creature(SquareObject):
 
     def update_health(self, dt):
         # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.0005
-        self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.000005
-        # self.health -= (self.size ** 3) * (self.speed ** 2) * dt * 0.0000005 # primer-like
+        # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.000005
+        self.health -= ((self.size ** 3) * (self.speed ** 2) + self.vision_radius) * dt * 0.0000005 # primer-like
         # print(f"delta health: {(self.size ** 3) * (self.speed ** 2) * dt }")
 
     def update_multiply(self, dt):
@@ -252,27 +272,31 @@ class Creature(SquareObject):
             for creature in world.creatures:
                 if creature != self and self.rect.colliderect(creature.rect):
 
-                    # bigger creatures can it smaller creatures if their size is at least 20% the size of the smaller one
-                    # ? add successful hunt probability?
-                    if self.size >= creature.size:
-                        self.health += 0.1 * creature.health
-                        world.remove_creature(creature)
-
-
                     # sexual reproduction
                     if random.random() < self.multiply_chance[0] * dt / 1000:
                         child = self.sexual_multiply(creature)
                         world.add_creature(child)
+
+
+                    # bigger creatures can it smaller creatures if their size is at least 20% the size of the smaller one
+                    # ? add successful hunt probability?
+                    if (self.size ** 2) >= 1.4 * (creature.size ** 2):
+                        self.health += 0.0001 * creature.health
+                        world.remove_creature(creature)
+
+
 
             # asexual reproduction
             if random.random() < self.multiply_chance[1] * dt / 1000:
                 world.add_creature(self.asexual_multiply())
 
     def get_velocity(self, dt):
-        vel_x = self.speed / 50 * sin(self.direction) * dt
-        vel_y = self.speed / 50 * cos(self.direction) * dt
+        vel_x = self.speed / 50 * cos(self.direction) * dt
+        vel_y = self.speed / 50 * sin(self.direction) * dt
         self.log(f"velocity: x: {vel_x}, y: {vel_y}")
         # print(f"velocity: x: {vel_x}, y: {vel_y}")
+        self.dx = vel_x
+        self.dy = vel_y
         return vel_x, vel_y
 
     def tick(self, world: World, dt: float):
@@ -317,13 +341,17 @@ class DnaCreature(Creature):
     min_s_multiply = 0
     max_s_multiply = 0.25
 
+    min_vision_radius = 50.0
+    max_vision_radius = 150.0
+
     def __init__(self, x: float, y: float, dna=DNA(), direction: float = 0.0, name: str = 'object'):
         color = pygame.Color(int(dna.genes[0] * 255), int(dna.genes[1] * 255), int(dna.genes[2] * 255))
         speed = auxiliary.map(dna.genes[3], 0, 1, self.min_speed, self.max_speed)
         size = auxiliary.map(dna.genes[4], 0, 1, self.min_size, self.max_size)
         multiply_chance = (auxiliary.map(dna.genes[5], 0, 1, self.min_s_multiply, self.max_s_multiply),
                            auxiliary.map(dna.genes[5], 0, 1, self.max_a_multiply, self.min_a_multiply))
-        super().__init__(x, y, size, speed, color, direction, name=name, multiply_chance=multiply_chance)
+        vision_radius = auxiliary.map(dna.genes[6], 0, 1, size, self.max_vision_radius)
+        super().__init__(x, y, size, speed, color, direction, vision_radius, name=name, multiply_chance=multiply_chance)
         self.dna = dna
 
         self.log("creature created")
@@ -341,7 +369,8 @@ class DnaCreature(Creature):
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self.health -= 0.01 * self.health
+        self.health -= 0.1 * self.health
+        partner.health -= 0.1 * partner.health
         self.multiply_cd = self.multiply_delay
 
         child_dna = self.dna.crossover(partner.dna)
@@ -355,4 +384,5 @@ class Food(SquareObject):
     def __init__(self, x: float, y: float, value: float = 30.0, size: float = 3.0,
                  color: pygame.Color = pygame.Color(125, 125, 125)):
         super().__init__(x, y, size, color, 0, name='food')
-        self.value = value
+        # self.value = value
+        self.value = 0.05 * 20000

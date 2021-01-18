@@ -20,8 +20,8 @@ import numpy as np
 # genotype
 class DNA:
     mutation_rate = 0.05  # probability of gene mutation
-    gene_length = 6  # the first gene codes for speed and size, the rest code for color
-
+    # gene_length = 6  # first 3 genes: r, g, b (color), gene[4] - speed, gene[5] - size
+    gene_length = 7
     def __init__(self, genes=np.zeros(gene_length)):
         self.genes = genes
 
