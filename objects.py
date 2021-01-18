@@ -68,6 +68,7 @@ class World:
                         color=color, dna=DNA(gene), name='Creature ' + str(creature_id_generator.get_next_id()))
 
     def remove_creature(self, creature):
+        creature.log("died")
         self.creatures.remove(creature)
         self.add_edible(Food(creature.x, creature.y, value=creature.size * 2, color=creature.color))
 
@@ -163,11 +164,11 @@ class Creature(SquareObject):
 
         self.multiply_cd = self.multiply_delay
 
-        # self.vision_radius = 100
-        self.vision_radius = 300
+        self.vision_radius = 100
+        # self.vision_radius = 300
         self.detection_chance = 0.25
-        self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
-                                       self.vision_radius * 2, self.vision_radius * 2)
+        # self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
+        #                                self.vision_radius * 2, self.vision_radius * 2)
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
@@ -196,6 +197,10 @@ class Creature(SquareObject):
         health_text_rect = health_text.get_rect()
         health_text_rect.center = (self.x, self.y + 15)
         surface.blit(health_text, health_text_rect)
+
+        # draw vision
+        # pygame.draw.rect(surface, color=(255, 255, 255), rect=self.vision_rect, width=1)
+        pygame.draw.circle(surface, color=(255, 255, 255), center=(self.x, self.y), radius=self.vision_radius, width=1)
 
     def find_target(self, world: World, dt) -> SquareObject:
         for edible in world.edibles:
@@ -273,6 +278,7 @@ class Creature(SquareObject):
     def tick(self, world: World, dt: float):
         target = self.find_target(world, dt)
         if target:
+            self.log("found target %s" % target.name)
             if isinstance(target, Food) or (self.can_multiply() and target.can_multiply()):
                 self.direction = atan2(target.y - self.y, target.x - self.x)
             else:
