@@ -67,6 +67,7 @@ class World:
                         color=color, dna=DNA(gene), name='Creature ' + str(creature_id_generator.get_next_id()))
 
     def remove_creature(self, creature):
+        creature.log("died")
         self.creatures.remove(creature)
         self.add_edible(Food(creature.x, creature.y, value=creature.size * 2, color=creature.color))
 
@@ -164,12 +165,11 @@ class Creature(SquareObject):
 
         # self.vision_radius = 100
         self.vision_radius = vision_radius
-        print(f"vision radius: {self.vision_radius}")
+        self.log(f"vision radius: {self.vision_radius}")
         # self.vision_radius = 300
         self.detection_chance = 0.25
         self.vision_rect = pygame.Rect(self.x + self.vision_radius, self.y + self.vision_radius,
                                        self.vision_radius * 2, self.vision_radius * 2)
-
 
         # auxiliary attributes
         self.dx = 0.0
@@ -317,6 +317,7 @@ class Creature(SquareObject):
     def tick(self, world: World, dt: float):
         target = self.find_target(world, dt)
         if target:
+            self.log("found target %s" % target.name)
             if isinstance(target, Food) or (self.can_multiply() and target.can_multiply()):
                 self.direction = atan2(target.y - self.y, target.x - self.x)
             else:
