@@ -3,11 +3,11 @@ import random
 import sys
 # from objects import DnaCreature, World, CreatureIdGenerator
 import objects as obj
-from dna import DNA
+from dna import BrainDNA, DNA
 import time
 
 creatures = []
-pop_size = 50
+pop_size = 1
 
 for i in range(pop_size):
     color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -17,11 +17,12 @@ for i in range(pop_size):
     gene = [color.r / 255, color.g / 255, color.b / 255, random.uniform(0, 1), random.uniform(0, 1),
             random.uniform(0, 1), random.uniform(0, 1)]
     print(f"gene: {gene} generated")
-    creatures.append(obj.DnaCreature(x=x, y=y, dna=DNA(gene), name='DnaCreature_' + str(obj.creature_id_generator.get_next_id())))
+    creatures.append(obj.BrainCreature(x=x, y=y, dna=DNA(gene), brain_dna=BrainDNA(),
+                                       name='BrainCreature_' + str(obj.creature_id_generator.get_next_id())))
 
-food = []
+food = [obj.Food(random.uniform(0, 1000), random.uniform(0, 700)) for i in range(100)]
 
-world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=5000, random_spawning=False,
+world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=5000, random_spawning=True,
               max_creatures=100)
 while True:
     for event in pygame.event.get():

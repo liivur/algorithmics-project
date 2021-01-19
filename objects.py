@@ -1,9 +1,11 @@
 import pygame
 import random
 import auxiliary
-from dna import DNA
+from brain import Brain
+from dna import BrainDNA, DNA
 from math import cos, pi, sin, atan2
 import logging
+import numpy as np
 
 # logging.basicConfig(level=logging.DEBUG)
 # logs to std err and overwrites (each execution) file out.log
@@ -59,11 +61,8 @@ class World:
         self.edibles.append(food)
 
     def generate_random_creature(self):
-        color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
-        gene = [random.uniform(0, 1), color.r / 255, color.g / 255, color.b / 255]
-        # print("random creature added")
-        return DnaCreature(x=random.uniform(0, self.width), y=random.uniform(0, self.height),
-                           color=color, dna=DNA(gene), name='Creature ' + str(creature_id_generator.get_next_id()))
+        return BrainCreature(x=random.uniform(0, self.width), y=random.uniform(0, self.height), dna=DNA(),
+                             brain_dna=BrainDNA(), name='Creature ' + str(creature_id_generator.get_next_id()))
 
     def remove_creature(self, creature):
         creature.log("died")
@@ -326,9 +325,9 @@ class Creature(SquareObject):
 
                     # bigger creatures can it smaller creatures if their size is at least 20% the size of the smaller one
                     # ? add successful hunt probability?
-                    if (self.size ** 2) >= 1.4 * (creature.size ** 2):
-                        self.health += 0.0001 * creature.health
-                        world.remove_creature(creature)
+                    # if (self.size ** 2) >= 1.4 * (creature.size ** 2):
+                    #     self.health += 0.0001 * creature.health
+                    #     world.remove_creature(creature)
 
             """   
             # asexual reproduction
@@ -352,7 +351,7 @@ class Creature(SquareObject):
 
         return vel_x, vel_y
 
-    def tick(self, world: World, dt: float):
+    def do_movement(self, world: World, dt: float):
         direction_changed = False
         if self.can_change_direction():
             target = self.find_target(world, dt)
@@ -378,6 +377,11 @@ class Creature(SquareObject):
 
         if direction_changed:
             self.direction_change_cd = self.direction_change_delay
+
+        return new_rect
+
+    def tick(self, world: World, dt: float):
+        new_rect = self.do_movement(world, dt)
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
@@ -423,11 +427,21 @@ class DnaCreature(Creature):
 
     # reproduction comes with a cost
 
+    def get_repro_dna(self, partner: 'DnaCreature' = None) -> DNA:
+        if partner:
+            dna = self.dna.crossover(partner.dna)
+        else:
+            dna = self.dna.copy()
+
+        dna.mutation()
+        return dna
+
     def asexual_multiply(self):
         self.health -= 0.01 * self.health
         self.multiply_cd = self.multiply_delay
-        dna = self.dna.copy()
-        dna.mutation()
+
+        dna = self.get_repro_dna()
+
         self.log("produced child via asexual reproduction")
         return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
 
@@ -436,11 +450,91 @@ class DnaCreature(Creature):
         partner.health -= 0.15 * partner.health
         self.multiply_cd = self.multiply_delay
 
-        child_dna = self.dna.crossover(partner.dna)
-        child_dna.mutation()
+        child_dna = self.get_repro_dna(partner)
+
         self.log("produced child with %s via sexual reproduction" % partner.name)
 
         return DnaCreature(self.x, self.y, dna=child_dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
+
+
+class BrainCreature(DnaCreature):
+    def __init__(self, x: float, y: float, dna: DNA = DNA(), brain_dna: DNA = BrainDNA(), direction: float = 0.0,
+                 name: str = 'object'):
+        super().__init__(x, y, dna, direction, name)
+        self.brain = Brain(brain_dna)
+
+    def get_brain_repro_dna(self, partner: 'BrainCreature' = None) -> BrainDNA:
+        if partner:
+            dna = self.brain.dna.crossover(partner.brain.dna)
+        else:
+            dna = self.brain.dna.copy()
+
+        dna.mutation()
+        return dna
+
+    def asexual_multiply(self):
+        # self.health -= 0.01 * self.health
+        self.multiply_cd = self.multiply_delay
+
+        dna = self.get_repro_dna()
+        brain_dna = self.get_brain_repro_dna()
+
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=(self.direction + pi) % (2 * pi),
+                             name=self.name)
+
+    def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
+        # self.health -= 0.15 * self.health
+        # partner.health -= 0.15 * partner.health
+        self.multiply_cd = self.multiply_delay
+
+        dna = self.get_repro_dna(partner)
+        brain_dna = self.get_brain_repro_dna(partner)
+
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=(self.direction + pi) % (2 * pi),
+                             name=self.name)
+
+    def do_movement(self, world: World, dt: float):
+        direction_changed = False
+        if self.can_change_direction():
+            target = self.find_target(world, dt)
+            neuron_input = np.zeros(Brain.input_neurons)
+            neuron_input[3] = self.can_multiply()
+            neuron_input[6] = self.health
+            neuron_input[7] = self.multiply_cd / 1000
+            if target:
+                neuron_input[0] = target.x - self.x
+                neuron_input[1] = target.y - self.y
+                if isinstance(target, Food):
+                    neuron_input[2] = 1
+                    neuron_input[5] = 10
+                else:
+                    neuron_input[2] = -1
+                    neuron_input[4] = target.can_multiply()
+                    if self.size > target.size:
+                        neuron_input[5] = self.size / target.size
+                    else:
+                        neuron_input[5] = -1 * target.size / self.size
+
+            direction = self.brain.get_direction(neuron_input)
+            direction_changed = self.direction == direction
+            self.direction = direction
+
+        vel_x, vel_y = self.get_velocity(dt)
+        new_rect = self.rect.move(vel_x, vel_y)
+
+        bounds = world.screen.get_rect()
+        if not bounds.contains(new_rect):
+            if self.can_change_direction():
+                self.direction = (self.direction + random.uniform(0, pi)) % (2 * pi)
+                vel_x, vel_y = self.get_velocity(dt)
+                new_rect = self.rect.move(vel_x, vel_y)
+                direction_changed = True
+            new_rect = new_rect.clamp(bounds)
+
+        if direction_changed:
+            self.direction_change_cd = self.direction_change_delay
+
+        return new_rect
 
 
 class Food(SquareObject):

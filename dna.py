@@ -22,7 +22,10 @@ class DNA:
     mutation_rate = 0.05  # probability of gene mutation
     # gene_length = 6  # first 3 genes: r, g, b (color), gene[4] - speed, gene[5] - size
     gene_length = 7
-    def __init__(self, genes=np.zeros(gene_length)):
+
+    def __init__(self, genes=None):
+        if not genes:
+            genes = np.random.uniform(size=self.gene_length)
         self.genes = genes
 
     def copy(self):
@@ -37,7 +40,7 @@ class DNA:
     # 1. crossover
     # single point crossover
     def crossover(self, partner):
-        child = DNA()
+        child = self.__class__()
         midpoint = np.random.randint(child.gene_length)
         child.genes[midpoint:] = self.genes[midpoint:]
         child.genes[:midpoint] = partner.genes[:midpoint]
@@ -49,3 +52,7 @@ class DNA:
         for i, _ in enumerate(self.genes):
             if np.random.uniform() < self.mutation_rate:
                 self.genes[i] = np.random.uniform()
+
+
+class BrainDNA(DNA):
+    gene_length = 36
