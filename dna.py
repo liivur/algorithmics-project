@@ -1,6 +1,12 @@
 # reading https://natureofcode.com/book/chapter-9-the-evolution-of-code/
 
 import numpy as np
+import logging
+import sys
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
+                    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(filename='out.log', mode='w')])
+logger = logging.getLogger(__name__)
 
 
 # I. CREATE A POPULATION

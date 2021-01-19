@@ -1,10 +1,8 @@
 import pygame
 import random
 import sys
-# from objects import DnaCreature, World, CreatureIdGenerator
 import objects as obj
 from dna import BrainDNA, DNA
-import time
 
 creatures = []
 pop_size = 1
@@ -30,4 +28,3 @@ while True:
             sys.exit()
 
     world.tick()
-    # time.sleep(0.01)

@@ -3,14 +3,15 @@ import random
 import auxiliary
 from brain import Brain
 from dna import BrainDNA, DNA
-from math import cos, pi, sin, atan2
+from math import cos, pi, sin, atan2, fmod
 import logging
 import numpy as np
+import sys
 
 # logging.basicConfig(level=logging.DEBUG)
 # logs to std err and overwrites (each execution) file out.log
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
-                    handlers=[logging.StreamHandler(), logging.FileHandler(filename='out.log', mode='w')])
+                    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(filename='out.log', mode='w')])
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +125,8 @@ class Object:
         self.name = name
 
     def log(self, info: str):
-        pass
-        # logger.debug(self.name + ": " + info)
+        # pass
+        logger.debug(self.name + ": " + info)
 
 
 class SquareObject(Object):
@@ -285,7 +286,7 @@ class Creature(SquareObject):
         self.multiply_cd = self.multiply_delay
         size = random.uniform(self.size * 0.9, self.size * 1.1)
         return Creature(self.x, self.y, size, speed=random.uniform(self.speed * 0.9, self.speed * 1.1),
-                        color=self.color, direction=(self.direction + pi) % (2 * pi), name=self.name,
+                        color=self.color, direction=fmod(self.direction + pi, 2 * pi), name=self.name,
                         multiply_chance=self.multiply_chance)
 
     def sexual_multiply(self, partner):
@@ -300,10 +301,10 @@ class Creature(SquareObject):
         self.health -= ((self.size ** 3) * (self.speed ** 2) + self.vision_radius) * dt * 0.0000005  # primer-like
         # print(f"delta health: {(self.size ** 3) * (self.speed ** 2) * dt }")
 
-    def update_direction_change(self, dt):
+    def update_direction_change_cd(self, dt):
         self.direction_change_cd = max(0, self.direction_change_cd - dt)
 
-    def update_multiply(self, dt):
+    def update_multiply_cd(self, dt):
         self.multiply_cd = max(0, self.multiply_cd - dt)
 
     def update_rect(self, rect: pygame.Rect):
@@ -341,7 +342,7 @@ class Creature(SquareObject):
         self.dy = self.speed / 50 * sin(self.direction) * dt
         vel_x = self.dx + self.x_acc
         vel_y = self.dy + self.y_acc
-        self.log(f"velocity: x: {vel_x}, y: {vel_y}")
+        # self.log(f"velocity: x: {vel_x}, y: {vel_y}")
 
         self.x_acc = vel_x - int(vel_x)
         vel_x = int(vel_x)
@@ -369,7 +370,7 @@ class Creature(SquareObject):
         bounds = world.screen.get_rect()
         if not bounds.contains(new_rect):
             if self.can_change_direction():
-                self.direction = (self.direction + random.uniform(0, pi)) % (2 * pi)
+                self.direction = fmod(self.direction + random.uniform(0, pi), (2 * pi))
                 vel_x, vel_y = self.get_velocity(dt)
                 new_rect = self.rect.move(vel_x, vel_y)
                 direction_changed = True
@@ -391,8 +392,8 @@ class Creature(SquareObject):
 
         self.creature_interaction(world, dt)
 
-        self.update_direction_change(dt)
-        self.update_multiply(dt)
+        self.update_direction_change_cd(dt)
+        self.update_multiply_cd(dt)
         self.update_health(dt)
         self.update_rect(new_rect)
 
@@ -443,7 +444,7 @@ class DnaCreature(Creature):
         dna = self.get_repro_dna()
 
         self.log("produced child via asexual reproduction")
-        return DnaCreature(self.x, self.y, dna=dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
+        return DnaCreature(self.x, self.y, dna=dna, direction=fmod(self.direction + pi, (2 * pi)), name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
         self.health -= 0.15 * self.health
@@ -454,7 +455,7 @@ class DnaCreature(Creature):
 
         self.log("produced child with %s via sexual reproduction" % partner.name)
 
-        return DnaCreature(self.x, self.y, dna=child_dna, direction=(self.direction + pi) % (2 * pi), name=self.name)
+        return DnaCreature(self.x, self.y, dna=child_dna, direction=fmod((self.direction + pi), (2 * pi)), name=self.name)
 
 
 class BrainCreature(DnaCreature):
@@ -479,7 +480,7 @@ class BrainCreature(DnaCreature):
         dna = self.get_repro_dna()
         brain_dna = self.get_brain_repro_dna()
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=(self.direction + pi) % (2 * pi),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod(self.direction + pi, (2 * pi)),
                              name=self.name)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
@@ -490,7 +491,7 @@ class BrainCreature(DnaCreature):
         dna = self.get_repro_dna(partner)
         brain_dna = self.get_brain_repro_dna(partner)
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=(self.direction + pi) % (2 * pi),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod((self.direction + pi), (2 * pi)),
                              name=self.name)
 
     def do_movement(self, world: World, dt: float):
@@ -525,7 +526,7 @@ class BrainCreature(DnaCreature):
         bounds = world.screen.get_rect()
         if not bounds.contains(new_rect):
             if self.can_change_direction():
-                self.direction = (self.direction + random.uniform(0, pi)) % (2 * pi)
+                self.direction = fmod((self.direction + random.uniform(0, pi)), (2 * pi))
                 vel_x, vel_y = self.get_velocity(dt)
                 new_rect = self.rect.move(vel_x, vel_y)
                 direction_changed = True
