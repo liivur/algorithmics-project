@@ -68,7 +68,7 @@ class World:
     def remove_creature(self, creature):
         creature.log("died")
         self.creatures.remove(creature)
-        self.add_edible(Food(creature.x, creature.y, value=creature.size * 2, color=creature.color))
+        # self.add_edible(Food(creature.x, creature.y, value=creature.size * 2, color=creature.color))
 
     def remove_edible(self, edible):
         self.edibles.remove(edible)
@@ -125,8 +125,8 @@ class Object:
         self.name = name
 
     def log(self, info: str):
-        # pass
-        logger.debug(self.name + ": " + info)
+        pass
+        # logger.debug(self.name + ": " + info)
 
 
 class SquareObject(Object):
@@ -143,19 +143,23 @@ class SquareObject(Object):
 
 class Creature(SquareObject):
     # base_health = 300
-    base_health = 20000
-    # multiply_delay = 10 ** 4
-    multiply_delay = 2 * (10 ** 4)
+    base_health = 2 * 10 ** 4
+    multiply_delay = 2 * 10 ** 3
+    # multiply_delay = 2 * (10 ** 4)
     death_rate = 0.01  # possibility of random death
     direction_change_delay = 500
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, vision_radius: int = 100, name: str = 'object_x',
-                 multiply_chance=(0.25, 0.05)):
+                 multiply_chance=(0.25, 0.05), health: int = None):
         super().__init__(x, y, size, color, direction, name=name)
+
         self.log("creature created")
         self.speed = speed
-        self.health = self.base_health
+        # self.health = self.base_health
+        if health is None:
+            health = self.base_health
+        self.health = health
         self.log(f"health init: {self.health}")
         self.multiply_chance = multiply_chance
 
@@ -298,7 +302,8 @@ class Creature(SquareObject):
     def update_health(self, dt):
         # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.0005
         # self.health -= (self.speed ** 1.1) * (self.size ** 1.1) * dt * 0.000005
-        self.health -= ((self.size ** 3) * (self.speed ** 2) + self.vision_radius) * dt * 0.0000005  # primer-like
+        # self.health -= ((self.size ** 3) * (self.speed ** 2) + self.vision_radius) * dt * 0.0000005  # primer-like
+        self.health -= ((max(8.0, self.size / 2) ** 3) * (self.speed ** 2) + self.vision_radius) * dt * 0.00005
         # print(f"delta health: {(self.size ** 3) * (self.speed ** 2) * dt }")
 
     def update_direction_change_cd(self, dt):
@@ -411,14 +416,15 @@ class DnaCreature(Creature):
     min_vision_radius = 50.0
     max_vision_radius = 150.0
 
-    def __init__(self, x: float, y: float, dna=DNA(), direction: float = 0.0, name: str = 'object'):
+    def __init__(self, x: float, y: float, dna=DNA(), direction: float = 0.0, name: str = 'object', health: int = None):
         color = pygame.Color(int(dna.genes[0] * 255), int(dna.genes[1] * 255), int(dna.genes[2] * 255))
         speed = auxiliary.map(dna.genes[3], 0, 1, self.min_speed, self.max_speed)
         size = auxiliary.map(dna.genes[4], 0, 1, self.min_size, self.max_size)
         multiply_chance = (auxiliary.map(dna.genes[5], 0, 1, self.min_s_multiply, self.max_s_multiply),
                            auxiliary.map(dna.genes[5], 0, 1, self.max_a_multiply, self.min_a_multiply))
         vision_radius = auxiliary.map(dna.genes[6], 0, 1, size, self.max_vision_radius)
-        super().__init__(x, y, size, speed, color, direction, vision_radius, name=name, multiply_chance=multiply_chance)
+        super().__init__(x, y, size, speed, color, direction, vision_radius, name=name, multiply_chance=multiply_chance,
+                         health=health)
         self.dna = dna
 
         self.log("creature created")
@@ -438,30 +444,35 @@ class DnaCreature(Creature):
         return dna
 
     def asexual_multiply(self):
-        self.health -= 0.01 * self.health
+        child_health = self.health * 0.5
+        self.health -= child_health
         self.multiply_cd = self.multiply_delay
 
         dna = self.get_repro_dna()
 
         self.log("produced child via asexual reproduction")
-        return DnaCreature(self.x, self.y, dna=dna, direction=fmod(self.direction + pi, (2 * pi)), name=self.name)
+        return DnaCreature(self.x, self.y, dna=dna, direction=fmod(self.direction + pi, (2 * pi)), name=self.name,
+                           health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self.health -= 0.15 * self.health
-        partner.health -= 0.15 * partner.health
+        self_donation = self.health * 0.25
+        self.health -= self_donation
+        partner_donation = partner.health * 0.25
+        partner.health -= partner_donation
         self.multiply_cd = self.multiply_delay
 
         child_dna = self.get_repro_dna(partner)
 
         self.log("produced child with %s via sexual reproduction" % partner.name)
 
-        return DnaCreature(self.x, self.y, dna=child_dna, direction=fmod((self.direction + pi), (2 * pi)), name=self.name)
+        return DnaCreature(self.x, self.y, dna=child_dna, direction=fmod((self.direction + pi), (2 * pi)),
+                           name=self.name, health=self_donation + partner_donation)
 
 
 class BrainCreature(DnaCreature):
     def __init__(self, x: float, y: float, dna: DNA = DNA(), brain_dna: DNA = BrainDNA(), direction: float = 0.0,
-                 name: str = 'object'):
-        super().__init__(x, y, dna, direction, name)
+                 name: str = 'object', health: int = None):
+        super().__init__(x, y, dna, direction, name, health=health)
         self.brain = Brain(brain_dna)
 
     def get_brain_repro_dna(self, partner: 'BrainCreature' = None) -> BrainDNA:
@@ -474,6 +485,9 @@ class BrainCreature(DnaCreature):
         return dna
 
     def asexual_multiply(self):
+        child_health = self.health * 0.5
+        self.health -= child_health
+        self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
         self.multiply_cd = self.multiply_delay
 
@@ -481,44 +495,47 @@ class BrainCreature(DnaCreature):
         brain_dna = self.get_brain_repro_dna()
 
         return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod(self.direction + pi, (2 * pi)),
-                             name=self.name)
+                             name=self.name, health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        # self.health -= 0.15 * self.health
-        # partner.health -= 0.15 * partner.health
+        self_donation = self.health * 0.25
+        self.health -= self_donation
+        partner_donation = partner.health * 0.25
+        partner.health -= partner_donation
         self.multiply_cd = self.multiply_delay
 
         dna = self.get_repro_dna(partner)
         brain_dna = self.get_brain_repro_dna(partner)
 
         return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod((self.direction + pi), (2 * pi)),
-                             name=self.name)
+                             name=self.name, health=self_donation + partner_donation)
 
     def do_movement(self, world: World, dt: float):
         direction_changed = False
         if self.can_change_direction():
             target = self.find_target(world, dt)
             neuron_input = np.zeros(Brain.input_neurons)
-            neuron_input[3] = self.can_multiply()
-            neuron_input[6] = self.health
-            neuron_input[7] = self.multiply_cd / 1000
+            # neuron_input[3] = self.can_multiply()
+            # neuron_input[6] = self.health
+            # neuron_input[7] = self.multiply_cd / 1000
             if target:
-                neuron_input[0] = target.x - self.x
-                neuron_input[1] = target.y - self.y
+                neuron_input[0] = self.vision_radius / auxiliary.stick_to_edge(target.x - self.x, -1, 1)
+                neuron_input[1] = self.vision_radius / auxiliary.stick_to_edge(target.y - self.y, -1, 1)
                 if isinstance(target, Food):
                     neuron_input[2] = 1
-                    neuron_input[5] = 10
+                    # neuron_input[5] = 10
                 else:
                     neuron_input[2] = -1
-                    neuron_input[4] = target.can_multiply()
-                    if self.size > target.size:
-                        neuron_input[5] = self.size / target.size
-                    else:
-                        neuron_input[5] = -1 * target.size / self.size
+                    # neuron_input[4] = target.can_multiply()
+                    # if self.size > target.size:
+                    #     neuron_input[5] = self.size / target.size
+                    # else:
+                    #     neuron_input[5] = -1 * target.size / self.size
 
             direction = self.brain.get_direction(neuron_input)
             direction_changed = self.direction == direction
             self.direction = direction
+            # print('brain', neuron_input, direction)
 
         vel_x, vel_y = self.get_velocity(dt)
         new_rect = self.rect.move(vel_x, vel_y)

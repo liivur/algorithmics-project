@@ -15,3 +15,14 @@ def sign(x):
     else:
         return -1
 
+
+def stick_to_edge(value, low, high):
+    if value < low or value > high:
+        return value
+    low_distance = abs(low - value)
+    high_distance = abs(high - value)
+
+    if low_distance > high_distance:
+        return high
+    return low
+

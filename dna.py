@@ -61,4 +61,5 @@ class DNA:
 
 
 class BrainDNA(DNA):
-    gene_length = 36
+    # gene_length = 52
+    gene_length = 32
