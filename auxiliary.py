@@ -1,5 +1,6 @@
 import numpy as np
 
+
 def map(value, min, max, min_target, max_target):
     """
     :return: maps value from range [min. max] to
@@ -25,4 +26,3 @@ def stick_to_edge(value, low, high):
     if low_distance > high_distance:
         return high
     return low
-

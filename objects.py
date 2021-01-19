@@ -93,10 +93,11 @@ class World:
             creature.tick(self, dt)
 
             # random death:
-            if random.random() <= creature.death_rate * dt / 1000:
-                self.remove_creature(creature)
+            # if random.random() <= creature.death_rate * dt / 1000:
+            #     self.remove_creature(creature)
 
-            elif creature.health > 0:
+            # elif creature.health > 0:
+            if creature.health > 0:
                 creature.draw(self.screen)
             else:
                 self.remove_creature(creature)
@@ -144,7 +145,7 @@ class SquareObject(Object):
 class Creature(SquareObject):
     # base_health = 300
     base_health = 2 * 10 ** 4
-    multiply_delay = 2 * 10 ** 3
+    multiply_delay = 4 * 10 ** 3
     # multiply_delay = 2 * (10 ** 4)
     death_rate = 0.01  # possibility of random death
     direction_change_delay = 500
@@ -240,9 +241,8 @@ class Creature(SquareObject):
         surface.blit(y_text, y_text_rect)
         """
 
-    """
     def find_target(self, world: World, dt) -> SquareObject:
-        min_food_dist = 100000 # just some number larger than the world
+        min_food_dist = float('inf')  # just some number larger than the world
         closest_food = None
         for edible in world.edibles:
             if self.vision_rect.colliderect(edible.rect):
@@ -250,11 +250,11 @@ class Creature(SquareObject):
                 if dist < min_food_dist:
                     min_food_dist = dist
                     closest = edible
-        #if closest_food:
-        #    return closest_food
+        if closest_food:
+            return closest_food
 
         closest_creature = None
-        min_creature_dist = 100000 # just some number larger than the world
+        min_creature_dist = float('inf')  # just some number larger than the world
         for creature in world.creatures:
             # if creature != self and self.rect.colliderect(creature.rect):
             if creature != self and self.vision_rect.colliderect(creature.rect):
@@ -271,20 +271,19 @@ class Creature(SquareObject):
             return creature
         else:
             return None
-    """
 
-    def find_target(self, world: World, dt) -> SquareObject:
-        for edible in world.edibles:
-            if self.vision_rect.colliderect(edible.rect):
-                return edible
-
-        for creature in world.creatures:
-            # if creature != self and self.rect.colliderect(creature.rect):
-            if creature != self and self.vision_rect.colliderect(creature.rect):
-                # if random.random() < self.detection_chance * dt / 1000:
-                return creature
-
-        return None
+    # def find_target(self, world: World, dt) -> SquareObject:
+    #     for edible in world.edibles:
+    #         if self.vision_rect.colliderect(edible.rect):
+    #             return edible
+    #
+    #     for creature in world.creatures:
+    #         # if creature != self and self.rect.colliderect(creature.rect):
+    #         if creature != self and self.vision_rect.colliderect(creature.rect):
+    #             # if random.random() < self.detection_chance * dt / 1000:
+    #             return creature
+    #
+    #     return None
 
     def multiply(self) -> 'Creature':
         self.multiply_cd = self.multiply_delay
@@ -325,7 +324,7 @@ class Creature(SquareObject):
                 if creature != self and self.rect.colliderect(creature.rect):
 
                     # sexual reproduction
-                    if random.random() < self.multiply_chance[0] * dt / 1000:
+                    if random.random() < self.multiply_chance[0] * dt / 100:
                         child = self.sexual_multiply(creature)
                         world.add_creature(child)
 
@@ -335,11 +334,9 @@ class Creature(SquareObject):
                     #     self.health += 0.0001 * creature.health
                     #     world.remove_creature(creature)
 
-            """   
             # asexual reproduction
             if random.random() < self.multiply_chance[1] * dt / 1000:
                 world.add_creature(self.asexual_multiply())
-            """
 
     def get_velocity(self, dt):
 
@@ -476,16 +473,16 @@ class BrainCreature(DnaCreature):
         self.brain = Brain(brain_dna)
 
     def get_brain_repro_dna(self, partner: 'BrainCreature' = None) -> BrainDNA:
-        if partner:
-            dna = self.brain.dna.crossover(partner.brain.dna)
-        else:
+        if partner is None:
             dna = self.brain.dna.copy()
+        else:
+            dna = self.brain.dna.crossover(partner.brain.dna)
 
         dna.mutation()
         return dna
 
     def asexual_multiply(self):
-        child_health = self.health * 0.5
+        child_health = max(self.health * 0.5 + 1000, self.health)
         self.health -= child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
@@ -494,20 +491,22 @@ class BrainCreature(DnaCreature):
         dna = self.get_repro_dna()
         brain_dna = self.get_brain_repro_dna()
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod(self.direction + pi, (2 * pi)),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
+                             direction=fmod(self.direction + pi, (2 * pi)),
                              name=self.name, health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self_donation = self.health * 0.25
+        self_donation = max(self.health * 0.25 + 500, self.health)
         self.health -= self_donation
-        partner_donation = partner.health * 0.25
+        partner_donation = min(self_donation, partner.health)
         partner.health -= partner_donation
         self.multiply_cd = self.multiply_delay
 
         dna = self.get_repro_dna(partner)
         brain_dna = self.get_brain_repro_dna(partner)
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod((self.direction + pi), (2 * pi)),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
+                             direction=fmod((self.direction + pi), (2 * pi)),
                              name=self.name, health=self_donation + partner_donation)
 
     def do_movement(self, world: World, dt: float):
