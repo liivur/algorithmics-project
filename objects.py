@@ -283,6 +283,8 @@ class Creature(SquareObject):
         health_ratio = self.health / self.base_health
         if health_ratio > 1:
             health_ratio = 1
+        if health_ratio < 0:
+            health_ratio = 0
         r = int(255 - (255 * health_ratio))
         g = int(255 * health_ratio)
         b = 0
@@ -536,7 +538,7 @@ class DnaCreature(Creature):
         dna = self.get_repro_dna()
 
         self.log("produced child via asexual reproduction")
-        return DnaCreature(self.x, self.y, dna=dna, direction=fmod(self.direction + pi, (2 * pi)), name=self.name,
+        return DnaCreature(self.x, self.y, dna=dna, direction=fmod(self.direction + pi, (2 * pi)), name="DnaCreature_" + str(creature_id_generator.get_next_id()),
                            health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
@@ -551,7 +553,7 @@ class DnaCreature(Creature):
         self.log("produced child with %s via sexual reproduction" % partner.name)
 
         return DnaCreature(self.x, self.y, dna=child_dna, direction=fmod((self.direction + pi), (2 * pi)),
-                           name=self.name, health=self_donation + partner_donation)
+                           name="DnaCreature_" + str(creature_id_generator.get_next_id()), health=self_donation + partner_donation)
 
 
 class BrainCreature(DnaCreature):
@@ -571,7 +573,7 @@ class BrainCreature(DnaCreature):
         return dna
 
     def asexual_multiply(self):
-        child_health = max(self.health * 0.5 + 1000, self.health)
+        child_health = min(self.health * 0.5 + 1000, self.health)
         self.health -=  child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
@@ -582,10 +584,10 @@ class BrainCreature(DnaCreature):
 
         return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
                              direction=fmod(self.direction + pi, (2 * pi)),
-                             name=self.name, health=child_health)
+                             name="BrainCreature_" + str(creature_id_generator.get_next_id()), health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self_donation = max(self.health * 0.25 + 500, self.health)
+        self_donation = min(self.health * 0.25 + 500, self.health)
         self.health -= self_donation
         partner_donation = min(self_donation, partner.health)
         partner.health -= partner_donation
@@ -596,7 +598,7 @@ class BrainCreature(DnaCreature):
 
         return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
                              direction=fmod((self.direction + pi), (2 * pi)),
-                             name=self.name, health=self_donation + partner_donation)
+                             name="BrainCreature_" + str(creature_id_generator.get_next_id()), health=self_donation + partner_donation)
 
     def do_movement(self, world: World, dt: float):
         direction_changed = False
