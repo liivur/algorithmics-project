@@ -3,6 +3,21 @@ import random
 import sys
 import objects as obj
 from dna import BrainDNA, DNA
+import logging
+
+# logging.basicConfig(level=logging.DEBUG)
+add_file_handler = False
+add_stdout_handler = True
+
+handlers = []
+if add_stdout_handler:
+    handlers.append(logging.StreamHandler(sys.stdout))
+if add_file_handler:
+    # overwrites (each execution) file out.log
+    handlers.append(logging.FileHandler(filename='out.log', mode='w'))
+
+logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
+                    handlers=handlers)
 
 creatures = []
 pop_size = 1
@@ -21,7 +36,7 @@ for i in range(pop_size):
 food = [obj.Food(random.uniform(0, 1000), random.uniform(0, 700)) for i in range(100)]
 
 world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=1000, random_spawning=True,
-              max_creatures=100)
+                  max_creatures=100)
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:

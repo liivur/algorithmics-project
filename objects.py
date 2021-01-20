@@ -6,12 +6,7 @@ from dna import BrainDNA, DNA
 from math import cos, pi, sin, atan2, fmod
 import logging
 import numpy as np
-import sys
-
-# logging.basicConfig(level=logging.DEBUG)
-# logs to std err and overwrites (each execution) file out.log
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
-                    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(filename='out.log', mode='w')])
+import time
 
 logger = logging.getLogger(__name__)
 
@@ -74,13 +69,46 @@ class World:
         self.edibles.remove(edible)
 
     def tick(self):
-        self.screen.fill(self.background)
         dt = self.clock.tick(60)
 
         self.update_creatures(dt)
         self.update_edibles(dt)
 
+        self.draw()
         pygame.display.flip()
+
+    def draw(self):
+        self.screen.fill(self.background)
+        for creature in self.creatures:
+            creature.draw(self.screen)
+        for food in self.edibles:
+            food.draw(self.screen)
+
+        font = pygame.font.Font('freesansbold.ttf', 14)
+        text = font.render(f"# of creatures: {len(self.creatures)}", True, (255, 255, 255), (0, 0, 0))
+        text_rect = text.get_rect()
+        text_rect.center = (100, 50)
+        self.screen.blit(text, text_rect)
+
+        current_text_bottom = 50 + text.get_size()[1]
+
+        al_text = font.render(f"avg lifespan: {self.get_active_lifespan()}", True, (255, 255, 255), (0, 0, 0))
+        al_text_rect = al_text.get_rect()
+        al_text_rect.center = (100, current_text_bottom)
+        self.screen.blit(al_text, al_text_rect)
+        current_text_bottom += al_text.get_size()[1]
+
+        # max_text = font.render(f"max lifespan: {self.get_max_lifespan()}", True, (255, 255, 255), (0, 0, 0))
+        # max_text_rect = max_text.get_rect()
+        # max_text_rect.center = (100, current_text_bottom)
+        # self.screen.blit(max_text, max_text_rect)
+        # current_text_bottom += max_text.get_size()[1]
+        #
+        # median_text = font.render(f"median lifespan: {self.get_median_lifespan()}", True, (255, 255, 255), (0, 0, 0))
+        # median_text_rect = median_text.get_rect()
+        # median_text_rect.center = (100, current_text_bottom)
+        # self.screen.blit(median_text, median_text_rect)
+        # current_text_bottom += median_text.get_size()[1]
 
     def update_creatures(self, dt):
         if self.random_spawning:
@@ -93,19 +121,12 @@ class World:
             creature.tick(self, dt)
 
             # random death:
-            if random.random() <= creature.death_rate * dt / 1000:
-                self.remove_creature(creature)
+            # if random.random() <= creature.death_rate * dt / 1000:
+            #     self.remove_creature(creature)
 
-            elif creature.health > 0:
-                creature.draw(self.screen)
-            else:
+            # elif creature.health > 0:
+            if creature.health <= 0:
                 self.remove_creature(creature)
-
-        font = pygame.font.Font('freesansbold.ttf', 14)
-        text = font.render(f"# of creatures: {len(self.creatures)}", True, (255, 255, 255), (0, 0, 0))
-        text_rect = text.get_rect()
-        text_rect.center = (100, 50)
-        self.screen.blit(text, text_rect)
 
     def update_edibles(self, dt):
         self.food_spawn_counter += dt
@@ -113,8 +134,29 @@ class World:
             self.add_edible(Food(random.uniform(0, self.width), random.uniform(0, self.height)))
             self.food_spawn_counter = 0
 
-        for food in self.edibles:
-            food.draw(self.screen)
+    def get_active_lifespan(self):
+        sum = 0
+        count = 0
+        for creature in self.creatures:
+            sum += creature.get_lifespan()
+            count += 1
+        if count == 0:
+            return 0
+        return round(sum / count)
+
+    def get_max_lifespan(self):
+        max = 0
+        for creature in self.creatures:
+            if creature.get_lifespan() > max:
+                max = creature.get_lifespan()
+        return round(max)
+
+    def get_median_lifespan(self):
+        elems = []
+        for creature in self.creatures:
+            elems.append(round(creature.get_lifespan()))
+        elems.sort()
+        return elems[int(len(self.creatures) / 2)]
 
 
 class Object:
@@ -125,8 +167,8 @@ class Object:
         self.name = name
 
     def log(self, info: str):
-        pass
-        # logger.debug(self.name + ": " + info)
+        # pass
+        logger.debug(self.name + ": " + info)
 
 
 class SquareObject(Object):
@@ -144,7 +186,7 @@ class SquareObject(Object):
 class Creature(SquareObject):
     # base_health = 300
     base_health = 2 * 10 ** 4
-    multiply_delay = 2 * 10 ** 3
+    multiply_delay = 4 * 10 ** 3
     # multiply_delay = 2 * (10 ** 4)
     death_rate = 0.01  # possibility of random death
     direction_change_delay = 500
@@ -180,11 +222,17 @@ class Creature(SquareObject):
         self.x_acc = 0.0
         self.y_acc = 0.0
 
+        self.lifespan_start = time.time()
+
     def can_change_direction(self):
         return self.direction_change_cd <= 0
 
     def can_multiply(self) -> bool:
         return self.multiply_cd <= 0
+
+    """Get lifespan of creature in seconds"""
+    def get_lifespan(self):
+        return time.time() - self.lifespan_start
 
     def draw(self, surface: pygame.Surface):
         super().draw(surface)
@@ -240,9 +288,8 @@ class Creature(SquareObject):
         surface.blit(y_text, y_text_rect)
         """
 
-    """
     def find_target(self, world: World, dt) -> SquareObject:
-        min_food_dist = 100000 # just some number larger than the world
+        min_food_dist = float('inf')  # just some number larger than the world
         closest_food = None
         for edible in world.edibles:
             if self.vision_rect.colliderect(edible.rect):
@@ -250,11 +297,11 @@ class Creature(SquareObject):
                 if dist < min_food_dist:
                     min_food_dist = dist
                     closest = edible
-        #if closest_food:
-        #    return closest_food
+        if closest_food:
+            return closest_food
 
         closest_creature = None
-        min_creature_dist = 100000 # just some number larger than the world
+        min_creature_dist = float('inf')  # just some number larger than the world
         for creature in world.creatures:
             # if creature != self and self.rect.colliderect(creature.rect):
             if creature != self and self.vision_rect.colliderect(creature.rect):
@@ -271,20 +318,19 @@ class Creature(SquareObject):
             return creature
         else:
             return None
-    """
 
-    def find_target(self, world: World, dt) -> SquareObject:
-        for edible in world.edibles:
-            if self.vision_rect.colliderect(edible.rect):
-                return edible
-
-        for creature in world.creatures:
-            # if creature != self and self.rect.colliderect(creature.rect):
-            if creature != self and self.vision_rect.colliderect(creature.rect):
-                # if random.random() < self.detection_chance * dt / 1000:
-                return creature
-
-        return None
+    # def find_target(self, world: World, dt) -> SquareObject:
+    #     for edible in world.edibles:
+    #         if self.vision_rect.colliderect(edible.rect):
+    #             return edible
+    #
+    #     for creature in world.creatures:
+    #         # if creature != self and self.rect.colliderect(creature.rect):
+    #         if creature != self and self.vision_rect.colliderect(creature.rect):
+    #             # if random.random() < self.detection_chance * dt / 1000:
+    #             return creature
+    #
+    #     return None
 
     def multiply(self) -> 'Creature':
         self.multiply_cd = self.multiply_delay
@@ -325,7 +371,7 @@ class Creature(SquareObject):
                 if creature != self and self.rect.colliderect(creature.rect):
 
                     # sexual reproduction
-                    if random.random() < self.multiply_chance[0] * dt / 1000:
+                    if random.random() < self.multiply_chance[0] * dt / 100:
                         child = self.sexual_multiply(creature)
                         world.add_creature(child)
 
@@ -335,11 +381,9 @@ class Creature(SquareObject):
                     #     self.health += 0.0001 * creature.health
                     #     world.remove_creature(creature)
 
-            """   
             # asexual reproduction
             if random.random() < self.multiply_chance[1] * dt / 1000:
                 world.add_creature(self.asexual_multiply())
-            """
 
     def get_velocity(self, dt):
 
@@ -476,16 +520,16 @@ class BrainCreature(DnaCreature):
         self.brain = Brain(brain_dna)
 
     def get_brain_repro_dna(self, partner: 'BrainCreature' = None) -> BrainDNA:
-        if partner:
-            dna = self.brain.dna.crossover(partner.brain.dna)
-        else:
+        if partner is None:
             dna = self.brain.dna.copy()
+        else:
+            dna = self.brain.dna.crossover(partner.brain.dna)
 
         dna.mutation()
         return dna
 
     def asexual_multiply(self):
-        child_health = self.health * 0.5
+        child_health = max(self.health * 0.5 + 1000, self.health)
         self.health -= child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
@@ -494,20 +538,22 @@ class BrainCreature(DnaCreature):
         dna = self.get_repro_dna()
         brain_dna = self.get_brain_repro_dna()
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod(self.direction + pi, (2 * pi)),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
+                             direction=fmod(self.direction + pi, (2 * pi)),
                              name=self.name, health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self_donation = self.health * 0.25
+        self_donation = max(self.health * 0.25 + 500, self.health)
         self.health -= self_donation
-        partner_donation = partner.health * 0.25
+        partner_donation = min(self_donation, partner.health)
         partner.health -= partner_donation
         self.multiply_cd = self.multiply_delay
 
         dna = self.get_repro_dna(partner)
         brain_dna = self.get_brain_repro_dna(partner)
 
-        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna, direction=fmod((self.direction + pi), (2 * pi)),
+        return BrainCreature(self.x, self.y, dna=dna, brain_dna=brain_dna,
+                             direction=fmod((self.direction + pi), (2 * pi)),
                              name=self.name, health=self_donation + partner_donation)
 
     def do_movement(self, world: World, dt: float):

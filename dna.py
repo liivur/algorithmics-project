@@ -4,8 +4,6 @@ import numpy as np
 import logging
 import sys
 
-logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
-                    handlers=[logging.StreamHandler(sys.stdout), logging.FileHandler(filename='out.log', mode='w')])
 logger = logging.getLogger(__name__)
 
 
@@ -30,7 +28,7 @@ class DNA:
     gene_length = 7
 
     def __init__(self, genes=None):
-        if not genes:
+        if genes is None:
             genes = np.random.uniform(size=self.gene_length)
         self.genes = genes
 
@@ -46,11 +44,8 @@ class DNA:
     # 1. crossover
     # single point crossover
     def crossover(self, partner):
-        child = self.__class__()
-        midpoint = np.random.randint(child.gene_length)
-        child.genes[midpoint:] = self.genes[midpoint:]
-        child.genes[:midpoint] = partner.genes[:midpoint]
-        return child
+        midpoint = np.random.randint(self.gene_length)
+        return self.__class__(np.concatenate((self.genes[midpoint:], partner.genes[:midpoint])))
 
     # 2. mutation
 
