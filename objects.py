@@ -24,6 +24,7 @@ class CreatureIdGenerator:
 creature_id_generator = CreatureIdGenerator()
 
 
+
 class World:
     def __init__(self, width: int = 640, height: int = 480, background: tuple = (0, 0, 0),
                  creatures: list = [], edibles: list = [], food_spawn_interval: int = 1000,
@@ -110,11 +111,32 @@ class World:
         # self.screen.blit(median_text, median_text_rect)
         # current_text_bottom += median_text.get_size()[1]
 
+    # selecting elite creatures and breeding them to add during creature spawn
+    # n: number of elite creatures selected
+    # k: number of children produced
+    def elite_reproduction(self, n: int, k: int):
+        m = min(n, self.creature_total)
+        elite = sorted([(creature, creature.food_consumed) for creature in self.creatures],
+                       key=lambda x: x[1], reverse=True)[:m]
+        # sexual
+        """
+        elite_children = []
+        for i in range(k):
+            parents = random.sample(range(m), 2)
+            elite_children.append(elite[parents[0]][0].sexual_multiply(elite[parents[1]][0]))
+        """
+        # asexual
+        elite_children = [parent[0].asexual_multiply() for parent in elite]
+        return elite_children
+
+
     def update_creatures(self, dt):
         if self.random_spawning:
             self.creature_spawn_counter += dt
             if self.creature_spawn_counter > self.creature_spawn_interval:
-                self.add_creature(self.generate_random_creature())
+                elite_children = self.elite_reproduction(5, 5)
+                for child in elite_children:
+                    self.add_creature(child)
                 self.creature_spawn_counter = 0
 
         for creature in self.creatures:
@@ -224,6 +246,10 @@ class Creature(SquareObject):
 
         self.lifespan_start = time.time()
 
+        self.food_consumed = 0
+
+
+
     def can_change_direction(self):
         return self.direction_change_cd <= 0
 
@@ -265,6 +291,14 @@ class Creature(SquareObject):
         health_text_rect.center = (self.x, self.y + 15)
         surface.blit(health_text, health_text_rect)
 
+        food_text = font.render(f"f: {self.food_consumed}", True, (255, 255, 255), (0, 0, 0))
+        food_text_rect = food_text.get_rect()
+        food_text_rect.center = (self.x, self.y + 30)
+        surface.blit(food_text, food_text_rect)
+
+        # disposition output
+
+        """
         dx_text = font.render(f"dx: {round(self.dx, 2)}", True, (255, 255, 255), (0, 0, 0))
         dx_text_rect = dx_text.get_rect()
         dx_text_rect.center = (self.x, self.y + 30)
@@ -274,6 +308,7 @@ class Creature(SquareObject):
         dy_text_rect = dx_text.get_rect()
         dy_text_rect.center = (self.x, self.y + 45)
         surface.blit(dy_text, dy_text_rect)
+        """
 
         # position output
         """
@@ -371,7 +406,8 @@ class Creature(SquareObject):
                 if creature != self and self.rect.colliderect(creature.rect):
 
                     # sexual reproduction
-                    if random.random() < self.multiply_chance[0] * dt / 100:
+                    # if random.random() < self.multiply_chance[0] * dt / 100:
+                    if random.random() < 0.5 * dt / 100:
                         child = self.sexual_multiply(creature)
                         world.add_creature(child)
 
@@ -435,6 +471,7 @@ class Creature(SquareObject):
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
+                self.food_consumed += 1
                 self.log(f"ate food with value: {edible.value}")
                 self.health += edible.value
                 world.remove_edible(edible)
@@ -460,6 +497,8 @@ class DnaCreature(Creature):
     min_vision_radius = 50.0
     max_vision_radius = 150.0
 
+
+
     def __init__(self, x: float, y: float, dna=DNA(), direction: float = 0.0, name: str = 'object', health: int = None):
         color = pygame.Color(int(dna.genes[0] * 255), int(dna.genes[1] * 255), int(dna.genes[2] * 255))
         speed = auxiliary.map(dna.genes[3], 0, 1, self.min_speed, self.max_speed)
@@ -470,6 +509,8 @@ class DnaCreature(Creature):
         super().__init__(x, y, size, speed, color, direction, vision_radius, name=name, multiply_chance=multiply_chance,
                          health=health)
         self.dna = dna
+
+        # counter for food consumed
 
         self.log("creature created")
         self.log(f"health dna creature: {self.health}")
@@ -517,6 +558,7 @@ class BrainCreature(DnaCreature):
     def __init__(self, x: float, y: float, dna: DNA = DNA(), brain_dna: DNA = BrainDNA(), direction: float = 0.0,
                  name: str = 'object', health: int = None):
         super().__init__(x, y, dna, direction, name, health=health)
+        # objective function
         self.brain = Brain(brain_dna)
 
     def get_brain_repro_dna(self, partner: 'BrainCreature' = None) -> BrainDNA:
@@ -530,7 +572,7 @@ class BrainCreature(DnaCreature):
 
     def asexual_multiply(self):
         child_health = max(self.health * 0.5 + 1000, self.health)
-        self.health -= child_health
+        self.health -=  child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
         self.multiply_cd = self.multiply_delay

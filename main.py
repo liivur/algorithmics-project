@@ -20,7 +20,7 @@ logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
                     handlers=handlers)
 
 creatures = []
-pop_size = 1
+pop_size = 70
 
 for i in range(pop_size):
     color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -35,8 +35,12 @@ for i in range(pop_size):
 
 food = [obj.Food(random.uniform(0, 1000), random.uniform(0, 700)) for i in range(100)]
 
-world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=1000, random_spawning=True,
+
+world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=1000, food_spawn_interval=1000,
+                  random_spawning=True,
                   max_creatures=100)
+
+
 while True:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
