@@ -296,7 +296,7 @@ class Creature(SquareObject):
                 dist = ((self.x - edible.x) ** 2 + (self.y - edible.y) ** 2) ** 0.5
                 if dist < min_food_dist:
                     min_food_dist = dist
-                    closest = edible
+                    closest_food = edible
         if closest_food:
             return closest_food
 
@@ -435,7 +435,7 @@ class Creature(SquareObject):
 
         for edible in world.edibles:
             if self.rect.colliderect(edible.rect):
-                self.log(f"found food with value: {edible.value}")
+                self.log(f"ate food with value: {edible.value}")
                 self.health += edible.value
                 world.remove_edible(edible)
 
