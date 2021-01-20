@@ -407,20 +407,24 @@ class Creature(SquareObject):
     def creature_interaction(self, world: World, dt):
         if self.can_multiply():
             # creature interaction
+            creatures_to_add = []
             for creature in world.creatures:
-                if creature != self and self.rect.colliderect(creature.rect):
+                if creature != self and creature.can_multiply() and self.rect.colliderect(creature.rect):
 
                     # sexual reproduction
                     # if random.random() < self.multiply_chance[0] * dt / 100:
-                    if random.random() < 0.5 * dt / 100:
+                    if random.random() < 0.3:
                         child = self.sexual_multiply(creature)
-                        world.add_creature(child)
+                        creatures_to_add.append(child)
+                        # world.add_creature(child)
 
                     # bigger creatures can it smaller creatures if their size is at least 20% the size of the smaller one
                     # ? add successful hunt probability?
                     # if (self.size ** 2) >= 1.4 * (creature.size ** 2):
                     #     self.health += 0.0001 * creature.health
                     #     world.remove_creature(creature)
+            for creature in creatures_to_add:
+                world.add_creature(creature)
 
             # asexual reproduction
             if random.random() < self.multiply_chance[1] * dt / 1000:
@@ -574,7 +578,7 @@ class BrainCreature(DnaCreature):
         return dna
 
     def asexual_multiply(self):
-        child_health = min(self.health * 0.5, self.health)
+        child_health = min(self.health * 0.5 + 1000, self.health)
         self.health -= child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
@@ -588,7 +592,7 @@ class BrainCreature(DnaCreature):
                              name="BrainCreature_" + str(creature_id_generator.get_next_id()), health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self_donation = min(self.health * 0.25, self.health)
+        self_donation = min(self.health * 0.25 + 500, self.health)
         self.health -= self_donation
         partner_donation = min(self_donation, partner.health)
         partner.health -= partner_donation
