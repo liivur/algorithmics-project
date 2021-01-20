@@ -24,7 +24,6 @@ class CreatureIdGenerator:
 creature_id_generator = CreatureIdGenerator()
 
 
-
 class World:
     def __init__(self, width: int = 640, height: int = 480, background: tuple = (0, 0, 0),
                  creatures: list = [], edibles: list = [], food_spawn_interval: int = 1000,
@@ -50,7 +49,7 @@ class World:
     def add_creature(self, creature):
         # sanity check so the computer doesn't crash with bad params
         if len(self.creatures) > self.max_creatures:
-            pass
+            return
         self.creatures.append(creature)  # comment back
         self.creature_total += 1
 
@@ -128,7 +127,6 @@ class World:
         # asexual
         elite_children = [parent[0].asexual_multiply() for parent in elite]
         return elite_children
-
 
     def update_creatures(self, dt):
         if self.random_spawning:
@@ -212,6 +210,7 @@ class Creature(SquareObject):
     # multiply_delay = 2 * (10 ** 4)
     death_rate = 0.01  # possibility of random death
     direction_change_delay = 500
+    min_multiply_health = 1000
 
     def __init__(self, x: float, y: float, size: float, speed: float, color: pygame.Color,
                  direction: float = 0.0, vision_radius: int = 100, name: str = 'object_x',
@@ -248,15 +247,14 @@ class Creature(SquareObject):
 
         self.food_consumed = 0
 
-
-
     def can_change_direction(self):
         return self.direction_change_cd <= 0
 
     def can_multiply(self) -> bool:
-        return self.multiply_cd <= 0
+        return self.multiply_cd <= 0 and self.health > self.min_multiply_health
 
     """Get lifespan of creature in seconds"""
+
     def get_lifespan(self):
         return time.time() - self.lifespan_start
 
@@ -349,12 +347,17 @@ class Creature(SquareObject):
                 # if random.random() < self.detection_chance * dt / 1000:
         #            return creature
 
-        if min_food_dist < min_creature_dist:
-            return closest_food
-        elif creature:
-            return creature
-        else:
-            return None
+        if closest_creature:
+            return closest_creature
+
+        return None
+
+        # if min_food_dist < min_creature_dist:
+        #     return closest_food
+        # elif creature:
+        #     return creature
+        # else:
+        #     return None
 
     # def find_target(self, world: World, dt) -> SquareObject:
     #     for edible in world.edibles:
@@ -499,8 +502,6 @@ class DnaCreature(Creature):
     min_vision_radius = 50.0
     max_vision_radius = 150.0
 
-
-
     def __init__(self, x: float, y: float, dna=DNA(), direction: float = 0.0, name: str = 'object', health: int = None):
         color = pygame.Color(int(dna.genes[0] * 255), int(dna.genes[1] * 255), int(dna.genes[2] * 255))
         speed = auxiliary.map(dna.genes[3], 0, 1, self.min_speed, self.max_speed)
@@ -573,8 +574,8 @@ class BrainCreature(DnaCreature):
         return dna
 
     def asexual_multiply(self):
-        child_health = min(self.health * 0.5 + 1000, self.health)
-        self.health -=  child_health
+        child_health = min(self.health * 0.5, self.health)
+        self.health -= child_health
         self.multiply_cd = self.multiply_delay
         # self.health -= 0.01 * self.health
         self.multiply_cd = self.multiply_delay
@@ -587,7 +588,7 @@ class BrainCreature(DnaCreature):
                              name="BrainCreature_" + str(creature_id_generator.get_next_id()), health=child_health)
 
     def sexual_multiply(self, partner: 'DnaCreature') -> 'DnaCreature':
-        self_donation = min(self.health * 0.25 + 500, self.health)
+        self_donation = min(self.health * 0.25, self.health)
         self.health -= self_donation
         partner_donation = min(self_donation, partner.health)
         partner.health -= partner_donation

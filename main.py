@@ -3,6 +3,7 @@ import random
 import sys
 import objects as obj
 from dna import BrainDNA, DNA
+from brain import Brain
 import logging
 
 # logging.basicConfig(level=logging.DEBUG)
@@ -19,8 +20,11 @@ if add_file_handler:
 logging.basicConfig(format='%(asctime)s %(message)s', level=logging.DEBUG,
                     handlers=handlers)
 
+brain = Brain()
+brain.train(1500)
+
 creatures = []
-pop_size = 70
+pop_size = 50
 
 for i in range(pop_size):
     color = pygame.Color(random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
@@ -30,15 +34,14 @@ for i in range(pop_size):
     gene = [color.r / 255, color.g / 255, color.b / 255, random.uniform(0, 1), random.uniform(0, 1),
             random.uniform(0, 1), random.uniform(0, 1)]
     print(f"gene: {gene} generated")
-    creatures.append(obj.BrainCreature(x=x, y=y, dna=DNA(gene), brain_dna=BrainDNA(),
+    creatures.append(obj.BrainCreature(x=x, y=y, dna=DNA(gene), brain_dna=brain.dna,
                                        name='BrainCreature_' + str(obj.creature_id_generator.get_next_id())))
 
 food = [obj.Food(random.uniform(0, 1000), random.uniform(0, 700)) for i in range(100)]
 
 
 world = obj.World(1024, 768, creatures=creatures, edibles=food, creature_spawn_interval=1000, food_spawn_interval=1000,
-                  random_spawning=True,
-                  max_creatures=100)
+                  random_spawning=False, max_creatures=100)
 
 
 while True:
