@@ -4,7 +4,7 @@ from dna import BrainDNA
 import numpy as np
 import math
 import auxiliary
-
+import numpy as np
 
 class Brain:
     # 0, 1 for target directions, 2 for target type, 3 for self.fertile, 4 for target.fertile
@@ -25,12 +25,12 @@ class Brain:
         self.hidden2_weights = np.array(weights[-self.hidden2_neurons:])
 
     def feedforward(self, values):
-        layer1 = self.sigmoid(np.dot(values, self.input_weights))
-        layer2 = self.sigmoid(np.dot(layer1, self.hidden1_weights))
-        return self.sigmoid(np.dot(layer2, self.hidden2_weights))
+        layer1 = np.tanh(np.dot(values, self.input_weights))
+        layer2 = np.tanh(np.dot(layer1, self.hidden1_weights))
+        return np.tanh(np.dot(layer2, self.hidden2_weights))
 
     def get_direction(self, values):
-        return self.feedforward(values) * 2 * math.pi
+        return self.feedforward(values) % 2 * math.pi
 
     @classmethod
     def get_number_of_neurons(cls):
