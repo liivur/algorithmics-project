@@ -47,6 +47,19 @@ class World:
 
         self.creature_total = len(creatures)
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        del state['screen']
+        del state['clock']
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        pygame.init()
+        self.screen = pygame.display.set_mode(self.size)
+        self.clock = pygame.time.Clock()
+
     def add_creature(self, creature):
         # sanity check so the computer doesn't crash with bad params
         if len(self.creatures) > self.max_creatures:
