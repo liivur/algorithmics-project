@@ -260,6 +260,16 @@ class Creature(SquareObject):
 
         self.food_consumed = 0
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        # Remove the unpicklable entries.
+        state['lifespan_start'] = time.time() - float(state['lifespan_start'])
+        return state
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        self.lifespan_start = time.time() - self.lifespan_start
+
     def can_change_direction(self):
         return self.direction_change_cd <= 0
 
